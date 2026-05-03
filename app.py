@@ -1116,7 +1116,7 @@ def render_stripe_upgrade_page():
 
     with col1:
         section_card(t("Monthly Premium"), t("Best if you want continuous access to premium planning tools."))
-        st.markdown("**$12.00/month**")
+        st.markdown("**$14.00/month**")
         if links["monthly"]:
             st.link_button(t("🚀 Subscribe Monthly"), links["monthly"], use_container_width=True)
         else:
@@ -1124,9 +1124,9 @@ def render_stripe_upgrade_page():
 
     with col2:
         section_card(t("One-Time Access"), t("Best if you prefer a simple one-time upgrade."))
-        st.markdown("**$9.99 one-time**")
+        st.markdown("**$10.99 one-time**")
         if links["one_time"]:
-            st.link_button(t("💳 Buy One-Time Access"), links["one_time"], use_container_width=True)
+            st.link_button(t("💳 Buy One-Time Access (Coming soon)"), disable=True) #links["one_time"], use_container_width=True)
         else:
             st.info(t("One-time Stripe link not connected yet."))
 
