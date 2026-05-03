@@ -1,0 +1,6 @@
+.env
+.env_test
+.env*
+app_data/
+__pycache__/
+*.pyc
