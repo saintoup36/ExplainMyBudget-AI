@@ -4,3 +4,5 @@ requests
 openai
 reportlab
 python-dotenv
+supabase
+stripe
