@@ -1586,11 +1586,6 @@ def render_stripe_upgrade_page():
     st.markdown("""
 <style>
 
-/* REMOVE PASSWORD EYE ICON */
-[data-testid="stTextInput"] button {
-    display: none !important;
-}
-
 </style>
 """, unsafe_allow_html=True)
 
@@ -1959,11 +1954,12 @@ def render_account_access():
 
         # Keep Email and Password the same length.
         # Use Streamlit's built-in password field only, so the extra custom eye button does not appear.
+        password = st.text_input("Password", type="password")
         login_password = st.text_input(
             t("Password"),
             type="password",
             key="login_password",
-            #placeholder=t("Enter your password"),
+            placeholder=t("Enter your password"),
         )
 
         sign_col, forgot_col = st.columns([1, 1])
@@ -1998,15 +1994,6 @@ def render_account_access():
     with tab_signup:
         st.markdown(f"<div class='account-mini-label'>{t('Create Account')}</div>", unsafe_allow_html=True)
         signup_email = st.text_input(t("Email"), key="signup_email")
-
-        # Keep Email and Password the same length.
-        # Use Streamlit's built-in password field only, so the extra custom eye button does not appear.
-        signup_password = st.text_input(
-            t("Password"),
-            type="password",
-            key="signup_password",
-            placeholder=t("Create a password"),
-        )
 
         if st.button(t("Create Account"), key="signup_btn", use_container_width=True):
             email_key = normalize_email(signup_email)
