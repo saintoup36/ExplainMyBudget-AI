@@ -9,6 +9,22 @@ from datetime import date
 import pandas as pd
 import requests
 import streamlit as st
+import streamlit.components.v1 as components
+import stripe
+from supabase import create_client
+from dotenv import load_dotenv
+
+BASE_DIR = Path(__file__).resolve().parent
+load_dotenv(BASE_DIR / ".env", override=True)
+
+stripe.api_key = os.getenv("STRIPE_SECRET_KEY")  # optional here, not required for webhook verification
+
+endpoint_secret = os.getenv("STRIPE_WEBHOOK_SECRET")
+
+try:
+    import stripe
+except Exception:
+    stripe = None
 
 try:
     from openai import OpenAI
@@ -26,17 +42,57 @@ except Exception:
     getSampleStyleSheet = None
     letter = None
 
-from dotenv import load_dotenv
-load_dotenv()
-
 st.set_page_config(page_title="ExplainMyBudget AI", page_icon="💰", layout="wide")
 
 if "language" not in st.session_state:
     st.session_state["language"] = "English"
 
+try:
+    from supabase import create_client
+except Exception:
+    create_client = None
+
 
 FREE_PLAN = "free"
 PREMIUM_PLAN = "premium"
+
+APP_NAME = "ExplainMyBudget"
+
+def get_supabase_client():
+    if create_client is None:
+        return None
+
+    url = os.getenv("SUPABASE_URL")
+    key = os.getenv("SUPABASE_ANON_KEY")
+
+    if not url or not key:
+        return None
+
+    return create_client(url, key)
+
+def sync_premium_from_supabase(email):
+    if not email:
+        return False
+
+    supabase = get_supabase_client()
+    if supabase is None:
+        return False
+
+    try:
+        profile = (
+            supabase.table("user_profiles")
+            .select("is_premium")
+            .eq("email", email.lower().strip())
+            .eq("app", APP_NAME)
+            .execute()
+        )
+
+        if profile.data and profile.data[0].get("is_premium"):
+            st.session_state["user_plan"] = PREMIUM_PLAN
+            return True
+
+    except Exception:
+        return False
 
 SUPPORTED_CURRENCIES = {
     "USD": {"symbol": "$", "name": "US Dollar"},
@@ -754,6 +810,37 @@ def inject_css():
             h1 { font-size:1.55rem !important; }
             h2, h3 { font-size:1.12rem !important; }
         }
+        
+        /* Fix unreadable Streamlit alert boxes in sidebar */
+[data-testid="stSidebar"] [data-testid="stAlert"] *,
+[data-testid="stSidebar"] [data-testid="stAlert"] p,
+[data-testid="stSidebar"] [data-testid="stAlert"] div {
+    color: #0f172a !important;
+    -webkit-text-fill-color: #0f172a !important;
+}
+
+[data-testid="stSidebar"] [data-testid="stAlert"] {
+    background: #fff1f2 !important;
+    border: 1px solid #fb7185 !important;
+    border-radius: 12px !important;
+}
+
+/* Make Streamlit error/warning boxes readable in sidebar */
+[data-testid="stSidebar"] [data-testid="stAlert"],
+[data-testid="stSidebar"] [role="alert"] {
+    background: #fff1f2 !important;
+    border: 1px solid #fb7185 !important;
+    border-radius: 12px !important;
+}
+
+[data-testid="stSidebar"] [data-testid="stAlert"] *,
+[data-testid="stSidebar"] [role="alert"] *,
+[data-testid="stSidebar"] .stAlert *,
+[data-testid="stSidebar"] div[data-baseweb="notification"] * {
+    color: #111827 !important;
+    -webkit-text-fill-color: #111827 !important;
+}
+        
         </style>
         """,
         unsafe_allow_html=True,
@@ -794,8 +881,6 @@ def render_hero():
 
 def section_card(label, body):
     st.markdown(f"<div class='soft-card'><div class='section-badge'>{label}</div><div>{body}</div></div>", unsafe_allow_html=True)
-
-
 
 
 def render_command_center(summary_df, total_planned, total_spent, total_remaining, monthly_income):
@@ -991,9 +1076,10 @@ def require_premium(feature_name="Premium Feature"):
 
 
 # ============================================================
-# STRIPE PAYMENT HELPERS
-# Fast launch version: Stripe Payment Links + success return URL.
-# For strongest production verification, connect this later to Stripe webhooks + Supabase.
+# STRIPE PRICE ID CHECKOUT HELPERS
+# Uses two Stripe Price IDs:
+#   STRIPE_PRICE_MONTHLY   -> recurring monthly subscription price
+#   STRIPE_PRICE_ONE_TIME  -> one-time/lifetime access price
 # ============================================================
 
 def get_secret_value(name, default=""):
@@ -1012,69 +1098,278 @@ def get_app_base_url():
     return str(base_url).rstrip("/")
 
 
-def get_stripe_links():
-    """Support both old and new Stripe variable names so your app does not break."""
-    monthly = (
-        get_secret_value("STRIPE_PAYMENT_LINK_SUBSCRIPTION")
-        or get_secret_value("STRIPE_PAYMENT_LINK_MONTHLY")
-    )
-    one_time = (
-        get_secret_value("STRIPE_PAYMENT_LINK_ONE_TIME")
-        or get_secret_value("STRIPE_PAYMENT_LINK_LIFETIME")
-    )
-    yearly = get_secret_value("STRIPE_PAYMENT_LINK_YEARLY")
+def get_stripe_price_ids():
+    """Return the two Stripe Price IDs used by this app."""
+    monthly = get_secret_value("STRIPE_PRICE_MONTHLY")
+    one_time = get_secret_value("STRIPE_PRICE_ONE_TIME")
     return {
         "monthly": monthly,
         "one_time": one_time,
-        "yearly": yearly,
     }
 
 
-def mark_current_user_premium():
-    """Unlock premium for the current session and locally saved account record if available."""
+def get_current_account_email():
+    return (
+        st.session_state.get("account_email")
+        or st.session_state.get("user_email")
+        or ""
+    ).lower().strip()
+
+
+def ensure_stripe_ready():
+    if stripe is None:
+        st.error("Stripe package is not installed. Run: pip install stripe")
+        return False
+
+    secret_key = get_secret_value("STRIPE_SECRET_KEY")
+    if not secret_key:
+        st.error("STRIPE_SECRET_KEY is missing from your .env or Streamlit Secrets.")
+        return False
+
+    stripe.api_key = secret_key
+    return True
+
+
+def save_premium_status(email, plan_source="stripe"):
+    """Save premium status locally and in Supabase when available."""
+    email = (email or "").lower().strip()
+    if not email:
+        return False
+
     st.session_state["user_plan"] = PREMIUM_PLAN
-    email = st.session_state.get("account_email", "").lower().strip()
-    if email:
-        users = load_users()
-        users.setdefault(email, {})
-        users[email]["is_premium"] = True
-        users[email]["plan"] = PREMIUM_PLAN
-        save_users(users)
+    st.session_state["account_email"] = email
+    st.session_state["account_logged_in"] = True
+
+    users = load_users()
+    users.setdefault(email, {})
+    users[email]["is_premium"] = True
+    users[email]["plan"] = PREMIUM_PLAN
+    users[email]["plan_source"] = plan_source
+    save_users(users)
+
+    supabase = get_supabase_client()
+    if supabase is not None:
+        try:
+            existing = (
+                supabase.table("user_profiles")
+                .select("email")
+                .eq("email", email)
+                .eq("app", APP_NAME)
+                .execute()
+            )
+
+            payload = {
+                "email": email,
+                "app": APP_NAME,
+                "is_premium": True,
+            }
+
+            if existing.data:
+                supabase.table("user_profiles")                     .update({"is_premium": True})                     .eq("email", email)                     .eq("app", APP_NAME)                     .execute()
+            else:
+                supabase.table("user_profiles").insert(payload).execute()
+        except Exception:
+            # Local save still keeps the account premium even if Supabase is unavailable.
+            pass
+
+    return True
+
+
+def mark_current_user_premium(email=None, plan_source="stripe"):
+    """Unlock premium permanently for the current signed-in user."""
+    email = (email or get_current_account_email()).lower().strip()
+    if not email:
+        st.session_state["user_plan"] = PREMIUM_PLAN
+        return False
+    return save_premium_status(email, plan_source=plan_source)
 
 
 def load_premium_status_for_signed_in_user():
-    """Restore premium when a locally saved user signs in again."""
-    email = st.session_state.get("account_email", "").lower().strip()
+    email = get_current_account_email()
+
     if not email:
         return
+
     users = load_users()
-    profile = users.get(email, {})
-    if profile.get("is_premium") or profile.get("plan") == PREMIUM_PLAN:
+    if users.get(email, {}).get("is_premium"):
         st.session_state["user_plan"] = PREMIUM_PLAN
+        return
+
+    supabase = get_supabase_client()
+    if supabase is None:
+        return
+
+    try:
+        profile = (
+            supabase.table("user_profiles")
+            .select("is_premium")
+            .eq("email", email)
+            .eq("app", APP_NAME)
+            .execute()
+        )
+
+        if profile.data and profile.data[0].get("is_premium"):
+            st.session_state["user_plan"] = PREMIUM_PLAN
+        else:
+            st.session_state["user_plan"] = FREE_PLAN
+
+    except Exception:
+        st.session_state["user_plan"] = FREE_PLAN
+
+
+def create_checkout_session(price_id, checkout_mode, plan_name):
+    """Create a Stripe Checkout Session from a Price ID and return its URL."""
+    if not ensure_stripe_ready():
+        return None
+
+    email = get_current_account_email()
+    if not email:
+        st.warning(t("Please sign in first."))
+        return None
+
+    app_base_url = get_app_base_url()
+    success_url = f"{app_base_url}?payment=success&session_id={{CHECKOUT_SESSION_ID}}"
+    cancel_url = f"{app_base_url}?payment=cancelled"
+
+    try:
+        session = stripe.checkout.Session.create(
+            mode=checkout_mode,
+            line_items=[{"price": price_id, "quantity": 1}],
+            customer_email=email,
+            client_reference_id=email,
+            success_url=success_url,
+            cancel_url=cancel_url,
+            metadata={
+                "email": email,
+                "app": APP_NAME,
+                "plan": plan_name,
+            },
+        )
+        return session.url
+    except Exception as e:
+        st.error(f"Stripe checkout error: {e}")
+        return None
+
+
+def redirect_to_checkout(checkout_url):
+    """Open Stripe Checkout immediately after the session is created."""
+    if not checkout_url:
+        return
+
+    components.html(
+        f"""
+        <script>
+            window.parent.location.href = {json.dumps(checkout_url)};
+        </script>
+        <p>Redirecting to Stripe Checkout...</p>
+        """,
+        height=80,
+    )
+    st.link_button("Open Stripe Checkout", checkout_url, use_container_width=True)
 
 
 def handle_payment_return():
-    """Handle Stripe redirect states like ?payment=success or ?payment=cancelled."""
-    params = st.query_params
-    payment_state = params.get("payment", "")
+    """Handle Stripe redirect, verify Checkout Session, unlock Premium, then clear URL params."""
+    try:
+        payment_status = st.query_params.get("payment")
+        session_id = st.query_params.get("session_id")
+    except Exception:
+        payment_status = None
+        session_id = None
 
-    if isinstance(payment_state, list):
-        payment_state = payment_state[0] if payment_state else ""
+    if isinstance(payment_status, list):
+        payment_status = payment_status[0] if payment_status else None
 
-    if payment_state == "success":
-        mark_current_user_premium()
-        st.success(t("🎉 Payment successful! Premium unlocked."))
+    if isinstance(session_id, list):
+        session_id = session_id[0] if session_id else None
+
+    if payment_status == "success":
+        st.session_state["payment_returned_success"] = True
+        email = None
+        stripe_verified = False
+
+        # Best path: read the Stripe Checkout Session from the returned session_id.
+        if session_id and str(session_id).strip().lower() != "test":
+            try:
+                stripe_key = get_secret_value("STRIPE_SECRET_KEY")
+                if stripe_key:
+                    stripe.api_key = stripe_key
+
+                checkout_session = stripe.checkout.Session.retrieve(session_id)
+                stripe_verified = True
+
+                customer_details = None
+                try:
+                    customer_details = checkout_session.get("customer_details")
+                except Exception:
+                    customer_details = getattr(checkout_session, "customer_details", None)
+
+                if customer_details:
+                    try:
+                        email = customer_details.get("email")
+                    except Exception:
+                        email = getattr(customer_details, "email", None)
+
+                if not email:
+                    try:
+                        email = checkout_session.get("customer_email")
+                    except Exception:
+                        email = getattr(checkout_session, "customer_email", None)
+
+                if not email:
+                    try:
+                        email = checkout_session.get("client_reference_id")
+                    except Exception:
+                        email = getattr(checkout_session, "client_reference_id", None)
+
+                if not email:
+                    try:
+                        metadata = checkout_session.get("metadata")
+                    except Exception:
+                        metadata = getattr(checkout_session, "metadata", None)
+                    if metadata:
+                        try:
+                            email = metadata.get("email")
+                        except Exception:
+                            email = getattr(metadata, "email", None)
+
+            except Exception as e:
+                st.warning(f"Payment returned, but Stripe session could not be verified: {e}")
+
+        # Fallback for local testing or if Stripe session lookup failed.
+        if not email:
+            email = get_current_account_email()
+
+        if email:
+            email = email.lower().strip()
+            try:
+                mark_current_user_premium(email, plan_source="stripe")
+                st.session_state["user_email"] = email
+                st.session_state["account_email"] = email
+                st.session_state["account_logged_in"] = True
+                st.session_state["user_plan"] = PREMIUM_PLAN
+                sync_premium_from_supabase(email)
+
+                if stripe_verified:
+                    st.success(t("🎉 Payment successful! Premium unlocked."))
+                else:
+                    st.success(t("🎉 Payment successful! Premium unlocked for this signed-in account."))
+            except Exception as e:
+                st.error(f"Payment succeeded, but Premium could not be saved: {e}")
+        else:
+            st.success(t("🎉 Payment successful! Please sign in to refresh Premium access."))
+
         try:
             st.query_params.clear()
         except Exception:
             pass
-    elif payment_state == "cancelled":
+
+    elif payment_status == "cancelled":
         st.warning(t("Payment was cancelled. You can try again anytime."))
         try:
             st.query_params.clear()
         except Exception:
             pass
-
 
 def render_stripe_upgrade_page():
     st.subheader(t("💎 Upgrade Your Experience"))
@@ -1106,9 +1401,9 @@ def render_stripe_upgrade_page():
         with feature_cols[idx % 3]:
             section_card(f"{icon} {t(title)}", t(desc))
 
-    links = get_stripe_links()
+    prices = get_stripe_price_ids()
     app_base_url = get_app_base_url()
-    success_url = f"{app_base_url}?payment=success"
+    success_url = f"{app_base_url}?payment=success&session_id={{CHECKOUT_SESSION_ID}}"
     cancel_url = f"{app_base_url}?payment=cancelled"
 
     st.markdown("### " + t("Choose Your Plan"))
@@ -1117,33 +1412,53 @@ def render_stripe_upgrade_page():
     with col1:
         section_card(t("Monthly Premium"), t("Best if you want continuous access to premium planning tools."))
         st.markdown("**$14.00/month**")
-        if links["monthly"]:
-            st.link_button(t("🚀 Subscribe Monthly"), links["monthly"], use_container_width=True)
+        if prices["monthly"]:
+            if st.button(t("🚀 Subscribe Monthly"), key="stripe_monthly_checkout", use_container_width=True):
+                checkout_url = create_checkout_session(
+                    price_id=prices["monthly"],
+                    checkout_mode="subscription",
+                    plan_name="monthly",
+                )
+                redirect_to_checkout(checkout_url)
         else:
-            st.info(t("Monthly Stripe link not connected yet."))
+            st.info(t("Monthly Stripe price ID not connected yet."))
 
     with col2:
         section_card(t("One-Time Access"), t("Best if you prefer a simple one-time upgrade."))
         st.markdown("**$10.99 one-time**")
-        if links["one_time"]:
-            st.link_button(t("💳 Buy One-Time Access (Coming soon)"), disable=True) #links["one_time"], use_container_width=True)
+        if prices["one_time"]:
+            if st.button(t("💳 Buy One-Time Access"), key="stripe_one_time_checkout", use_container_width=True):
+                checkout_url = create_checkout_session(
+                    price_id=prices["one_time"],
+                    checkout_mode="payment",
+                    plan_name="one_time",
+                )
+                redirect_to_checkout(checkout_url)
         else:
-            st.info(t("One-time Stripe link not connected yet."))
-
-    if links.get("yearly"):
-        st.link_button(t("⭐ Upgrade Yearly"), links["yearly"], use_container_width=True)
+            st.button(
+                t("💳 Buy One-Time Access (Coming soon)"),
+                disabled=True,
+                use_container_width=True,
+            )
 
     with st.expander(t("Stripe setup notes"), expanded=False):
-        st.write(t("Set your Stripe Payment Link success URL to:"))
+        st.write("Use these Streamlit Secrets or .env values:")
+        st.code(
+            "STRIPE_SECRET_KEY=sk_test_or_live...\n"
+            "STRIPE_PRICE_MONTHLY=price_...\n"
+            "STRIPE_PRICE_ONE_TIME=price_...\n"
+            "APP_BASE_URL=https://your-streamlit-app-url"
+        )
+        st.write(os.getenv("SUPABASE_ANON_KEY")[:10])
+        st.write(t("Stripe Checkout success URL:"))
         st.code(success_url)
-        st.write(t("Set your Stripe Payment Link cancel URL to:"))
+        st.write(t("Stripe Checkout cancel URL:"))
         st.code(cancel_url)
-        st.write(t("In Streamlit Cloud, add the Stripe links and APP_BASE_URL in Secrets."))
 
     st.markdown("---")
     st.caption(t("Temporary demo unlock for local testing only. Remove this before public launch if you do not want demo premium access."))
     if st.button(t("Activate Premium Demo"), key="activate_premium_demo", use_container_width=True):
-        mark_current_user_premium()
+        mark_current_user_premium(plan_source="demo")
         st.success(t("Premium activated in demo mode."))
 
 
@@ -1290,6 +1605,116 @@ def load_current_user_budget():
     except Exception:
         return False, "Saved budget could not be loaded."
 
+def normalize_email(email):
+    return str(email or "").lower().strip()
+
+
+def ensure_user_profile(email):
+    """Create a Supabase premium profile row if it does not already exist."""
+    email_key = normalize_email(email)
+    if not email_key:
+        return
+
+    supabase = get_supabase_client()
+    if supabase is None:
+        return
+
+    try:
+        existing = (
+            supabase.table("user_profiles")
+            .select("email")
+            .eq("email", email_key)
+            .eq("app", APP_NAME)
+            .execute()
+        )
+        if not existing.data:
+            supabase.table("user_profiles").insert({
+                "email": email_key,
+                "app": APP_NAME,
+                "is_premium": False,
+            }).execute()
+    except Exception:
+        # Do not block login if the profile table/policy is not ready yet.
+        pass
+
+
+def sign_in_with_supabase(email, password):
+    """Try real Supabase Auth first. Returns (ok, message)."""
+    email_key = normalize_email(email)
+    if not email_key or not password:
+        return False, "Invalid email or password."
+
+    supabase = get_supabase_client()
+    if supabase is None:
+        return False, "Supabase is not connected."
+
+    try:
+        result = supabase.auth.sign_in_with_password({
+            "email": email_key,
+            "password": password,
+        })
+        if getattr(result, "user", None) or getattr(result, "session", None):
+            ensure_user_profile(email_key)
+            st.session_state["account_logged_in"] = True
+            st.session_state["account_email"] = email_key
+            st.session_state["user_email"] = email_key
+            sync_premium_from_supabase(email_key)
+            return True, "Signed in successfully."
+    except Exception as e:
+        error_text = str(e).lower()
+        if "email not confirmed" in error_text or "confirm" in error_text:
+            return False, "Please confirm your email first, or disable Confirm email in Supabase Auth settings for testing."
+        return False, "Invalid email or password."
+
+    return False, "Invalid email or password."
+
+
+def sign_up_with_supabase(email, password):
+    """Create a Supabase Auth user when Supabase is available. Returns (ok, message)."""
+    email_key = normalize_email(email)
+    if not email_key or "@" not in email_key:
+        return False, "Enter a valid email address."
+    if len(str(password or "")) < 6:
+        return False, "Password must be at least 6 characters."
+
+    supabase = get_supabase_client()
+    if supabase is None:
+        return False, "Supabase is not connected."
+
+    try:
+        result = supabase.auth.sign_up({
+            "email": email_key,
+            "password": password,
+        })
+        ensure_user_profile(email_key)
+
+        # If Supabase email confirmation is OFF, a session/user is usually available immediately.
+        if getattr(result, "user", None) or getattr(result, "session", None):
+            st.session_state["account_logged_in"] = True
+            st.session_state["account_email"] = email_key
+            st.session_state["user_email"] = email_key
+            sync_premium_from_supabase(email_key)
+            return True, "Account created and budget saved."
+
+        return True, "Account created. Check your email if Supabase requires confirmation."
+    except Exception as e:
+        error_text = str(e).lower()
+        if "already" in error_text or "registered" in error_text or "exists" in error_text:
+            return False, "This account already exists."
+        return False, "Account could not be created. Check Supabase settings and try again."
+
+
+def finish_successful_login(email_key):
+    st.session_state["account_logged_in"] = True
+    st.session_state["account_email"] = email_key
+    st.session_state["user_email"] = email_key
+    sync_premium_from_supabase(email_key)
+    ok, msg = load_current_user_budget()
+    st.success(t("Signed in successfully."))
+    if ok:
+        st.info(t(msg))
+
+
 def render_account_access():
     st.markdown("### " + t("Account Access"))
     if st.session_state.get("account_logged_in"):
@@ -1309,6 +1734,8 @@ def render_account_access():
         if st.button(t("Sign Out"), key="sign_out_btn", use_container_width=True):
             st.session_state["account_logged_in"] = False
             st.session_state["account_email"] = ""
+            st.session_state["user_email"] = ""
+            st.session_state["user_plan"] = FREE_PLAN
             st.success(t("Signed out."))
         return
 
@@ -1346,17 +1773,24 @@ def render_account_access():
             st.info(t("Password reset is not connected yet. For now, create a new account or contact support."))
 
         if sign_in_clicked:
-            users = load_users()
-            email_key = login_email.lower().strip()
-            if email_key in users and users[email_key].get("password") == hash_password(login_password):
-                st.session_state["account_logged_in"] = True
-                st.session_state["account_email"] = email_key
-                ok, msg = load_current_user_budget()
-                st.success(t("Signed in successfully."))
-                if ok:
-                    st.info(t(msg))
+            email_key = normalize_email(login_email)
+            if not email_key or "@" not in email_key or not login_password:
+                st.warning(t("Enter a valid email address."))
             else:
-                st.error(t("Invalid email or password."))
+                # 1) Try Supabase Auth first.
+                supabase_ok, supabase_msg = sign_in_with_supabase(email_key, login_password)
+                if supabase_ok:
+                    ok, msg = load_current_user_budget()
+                    st.success(t("Signed in successfully."))
+                    if ok:
+                        st.info(t(msg))
+                else:
+                    # 2) Fallback for older local accounts created by previous versions of the app.
+                    users = load_users()
+                    if email_key in users and users[email_key].get("password") == hash_password(login_password):
+                        finish_successful_login(email_key)
+                    else:
+                        st.error(t(supabase_msg if supabase_msg else "Invalid email or password."))
 
     with tab_signup:
         st.markdown(f"<div class='account-mini-label'>{t('Create Account')}</div>", unsafe_allow_html=True)
@@ -1381,22 +1815,36 @@ def render_account_access():
                 st.rerun()
 
         if st.button(t("Create Account"), key="signup_btn", use_container_width=True):
-            email_key = signup_email.lower().strip()
+            email_key = normalize_email(signup_email)
             if not email_key or "@" not in email_key:
                 st.warning(t("Enter a valid email address."))
             elif len(signup_password) < 6:
                 st.warning(t("Password must be at least 6 characters."))
             else:
+                # 1) Create in Supabase when connected.
+                supabase_ok, supabase_msg = sign_up_with_supabase(email_key, signup_password)
+
+                # 2) Also save a local fallback account so login still works during local testing.
                 users = load_users()
-                if email_key in users:
-                    st.warning(t("This account already exists."))
-                else:
+                if email_key not in users:
                     users[email_key] = {"password": hash_password(signup_password)}
                     save_users(users)
+
+                if supabase_ok:
                     st.session_state["account_logged_in"] = True
                     st.session_state["account_email"] = email_key
+                    st.session_state["user_email"] = email_key
+                    save_current_user_budget()
+                    st.success(t(supabase_msg))
+                elif get_supabase_client() is None:
+                    # Local-only mode: useful when testing before Supabase secrets are added.
+                    st.session_state["account_logged_in"] = True
+                    st.session_state["account_email"] = email_key
+                    st.session_state["user_email"] = email_key
                     save_current_user_budget()
                     st.success(t("Account created and budget saved."))
+                else:
+                    st.warning(t(supabase_msg))
 
 # ============================================================
 # PDF REPORT EXPORT
@@ -1503,6 +1951,7 @@ def ask_real_ai(prompt):
         )
         return response.choices[0].message.content
     except Exception:
+        St.error(f"AI Error: {e}")
         return None
 
 # ============================================================
@@ -1648,6 +2097,14 @@ load_premium_status_for_signed_in_user()
 handle_payment_return()
 inject_css()
 render_hero()
+
+if st.session_state.get("account_logged_in"):
+    sync_premium_from_supabase(
+        st.session_state.get("account_email")
+    )
+
+if st.session_state.get("account_logged_in"):
+    sync_premium_from_supabase(st.session_state.get("account_email"))
 
 with st.sidebar:
     st.markdown(
