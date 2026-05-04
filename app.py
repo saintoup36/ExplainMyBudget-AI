@@ -841,7 +841,144 @@ def inject_css():
     -webkit-text-fill-color: #111827 !important;
 }
         
-        </style>
+        
+
+        /* =========================
+           V2 ELITE SAAS UPGRADE
+           Premium product polish layer
+           ========================= */
+        .v2-hero-shell {
+            position: relative;
+            overflow: hidden;
+            border-radius: 34px;
+            padding: 1.35rem 1.45rem;
+            margin: .15rem 0 .9rem 0;
+            background:
+                radial-gradient(circle at 8% 0%, rgba(190,242,100,.35), transparent 21rem),
+                radial-gradient(circle at 94% 12%, rgba(52,211,153,.28), transparent 22rem),
+                linear-gradient(135deg, #011713 0%, #033a2f 44%, #0f766e 100%);
+            border: 1px solid rgba(255,255,255,.18);
+            box-shadow: 0 28px 70px rgba(2,44,34,.30);
+            color: #ffffff;
+        }
+        .v2-hero-shell:before {
+            content: "";
+            position: absolute;
+            inset: 0;
+            background-image:
+                linear-gradient(rgba(255,255,255,.06) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(255,255,255,.06) 1px, transparent 1px);
+            background-size: 38px 38px;
+            mask-image: linear-gradient(90deg, rgba(0,0,0,.7), transparent);
+            pointer-events: none;
+        }
+        .v2-hero-inner { position: relative; z-index: 2; }
+        .v2-kicker {
+            display: inline-flex;
+            align-items: center;
+            gap: .45rem;
+            padding: .34rem .74rem;
+            border-radius: 999px;
+            background: rgba(255,255,255,.14);
+            border: 1px solid rgba(255,255,255,.25);
+            font-size: .76rem;
+            font-weight: 950;
+            letter-spacing: .11em;
+            text-transform: uppercase;
+        }
+        .v2-hero-title {
+            font-size: clamp(2.1rem, 4vw, 4.15rem);
+            line-height: 1.02;
+            letter-spacing: -.06em;
+            font-weight: 1000;
+            margin: .82rem 0 .58rem 0;
+        }
+        .v2-hero-copy {
+            color: rgba(255,255,255,.88);
+            font-size: 1.04rem;
+            line-height: 1.62;
+            max-width: 840px;
+            margin: 0 0 1.05rem 0;
+        }
+        .v2-chip-row { display:flex; gap:.55rem; flex-wrap:wrap; }
+        .v2-chip {
+            padding: .45rem .78rem;
+            border-radius: 999px;
+            background: rgba(255,255,255,.12);
+            border: 1px solid rgba(255,255,255,.22);
+            color: #f8fafc;
+            font-weight: 900;
+            font-size: .82rem;
+        }
+        .v2-plan-card {
+            position: relative;
+            min-height: 420px;
+            border-radius: 28px;
+            padding: 1.2rem;
+            background:
+                linear-gradient(180deg, rgba(255,255,255,.98), rgba(248,250,252,.94));
+            border: 1px solid rgba(15,23,42,.08);
+            box-shadow: 0 24px 55px rgba(15,23,42,.10);
+            overflow: hidden;
+        }
+        .v2-plan-card.featured {
+            border: 1px solid rgba(16,185,129,.36);
+            box-shadow: 0 28px 70px rgba(6,95,70,.18);
+        }
+        .v2-plan-card.featured:before {
+            content: "Best value";
+            position: absolute;
+            top: 1rem;
+            right: 1rem;
+            padding: .35rem .72rem;
+            border-radius: 999px;
+            background: #022c22;
+            color: #bef264;
+            font-size: .72rem;
+            font-weight: 950;
+            letter-spacing: .06em;
+            text-transform: uppercase;
+        }
+        .v2-plan-name { color:#0f172a; font-size:1.2rem; font-weight:1000; margin-bottom:.35rem; }
+        .v2-plan-price { color:#022c22; font-size:2.55rem; font-weight:1000; letter-spacing:-.05em; margin:.25rem 0; }
+        .v2-plan-note { color:#64748b; font-weight:750; font-size:.9rem; margin-bottom:.95rem; }
+        .v2-feature-list { margin:.7rem 0 1rem 0; padding:0; list-style:none; }
+        .v2-feature-list li {
+            padding:.45rem 0;
+            color:#334155;
+            font-weight:760;
+            border-bottom:1px solid rgba(15,23,42,.055);
+        }
+        .v2-feature-list li:before { content:"✓"; color:#059669; font-weight:1000; margin-right:.5rem; }
+        .v2-mini-grid {
+            display:grid;
+            grid-template-columns: repeat(4, minmax(0,1fr));
+            gap:.65rem;
+            margin:.85rem 0 1rem 0;
+        }
+        .v2-mini-tile {
+            padding:.82rem;
+            border-radius:20px;
+            background:rgba(255,255,255,.86);
+            border:1px solid rgba(15,23,42,.07);
+            box-shadow:0 14px 34px rgba(15,23,42,.055);
+        }
+        .v2-mini-title {font-weight:1000;color:#0f172a;font-size:.88rem;margin-bottom:.2rem;}
+        .v2-mini-text {color:#64748b;font-size:.8rem;line-height:1.35;}
+        .v2-billing-note {
+            border-radius: 20px;
+            padding: .9rem 1rem;
+            background: #ecfeff;
+            border: 1px solid rgba(6,182,212,.25);
+            color: #155e75;
+            font-weight: 820;
+            margin-top: .9rem;
+        }
+        @media (max-width: 900px) {
+            .v2-mini-grid { grid-template-columns: repeat(2, minmax(0,1fr)); }
+            .trust-strip { grid-template-columns: repeat(2, minmax(0,1fr)); }
+        }
+</style>
         """,
         unsafe_allow_html=True,
     )
@@ -1054,12 +1191,6 @@ def is_premium_user():
         or st.session_state.get("premium_trial_active", False)
     )
 
-def is_premium_user():
-    return (
-        st.session_state.get("user_plan", FREE_PLAN) == PREMIUM_PLAN
-        or st.session_state.get("premium_trial_active", False)
-    )
-
 def activate_one_free_trial():
     if st.session_state.get("premium_trial_used", False):
         return False
@@ -1068,12 +1199,19 @@ def activate_one_free_trial():
     st.session_state["premium_trial_active"] = True
     return True
 
-def require_premium(feature_name="Premium Feature"):
+def require_premium(feature_name="this feature"):
     if not is_premium_user():
+
+        # Message
         st.warning(t(f"🔒 {feature_name} is a Premium feature."))
         st.info(t("Go to 💎 Upgrade to unlock this feature."))
-        st.stop()
 
+        # Upgrade button
+        if st.button("💎 Upgrade to Premium", key=f"upgrade_{feature_name}"):
+            st.session_state["page"] = "💎 Upgrade"
+            st.rerun()
+
+        st.stop()
 
 # ============================================================
 # STRIPE PRICE ID CHECKOUT HELPERS
@@ -1217,8 +1355,36 @@ def load_premium_status_for_signed_in_user():
         st.session_state["user_plan"] = FREE_PLAN
 
 
-def create_checkout_session(price_id, checkout_mode, plan_name):
-    """Create a Stripe Checkout Session from a Price ID and return its URL."""
+def create_checkout_session(price_id=None, checkout_mode=None, plan_name=None):
+    """Create a Stripe Checkout Session and return its URL.
+
+    Supports both safe call styles:
+    1) create_checkout_session("monthly")
+    2) create_checkout_session(price_id=..., checkout_mode=..., plan_name=...)
+    """
+    prices = get_stripe_price_ids()
+
+    # Friendly shorthand requested for the Upgrade buttons.
+    if price_id in ["monthly", "subscription"] and checkout_mode is None:
+        plan_name = "monthly"
+        checkout_mode = "subscription"
+        price_id = prices.get("monthly")
+
+    elif price_id in ["one_time", "one-time", "payment"] and checkout_mode is None:
+        plan_name = "one_time"
+        checkout_mode = "payment"
+        price_id = prices.get("one_time")
+
+    if not price_id:
+        st.error(t("Stripe price ID not connected yet. Check STRIPE_PRICE_MONTHLY or STRIPE_PRICE_ONE_TIME in .env / Streamlit Secrets."))
+        return None
+
+    if not checkout_mode:
+        checkout_mode = "subscription" if plan_name == "monthly" else "payment"
+
+    if not plan_name:
+        plan_name = "monthly" if checkout_mode == "subscription" else "one_time"
+
     if not ensure_stripe_ready():
         return None
 
@@ -1249,7 +1415,6 @@ def create_checkout_session(price_id, checkout_mode, plan_name):
     except Exception as e:
         st.error(f"Stripe checkout error: {e}")
         return None
-
 
 def redirect_to_checkout(checkout_url):
     """Open Stripe Checkout immediately after the session is created."""
@@ -1372,95 +1537,122 @@ def handle_payment_return():
             pass
 
 def render_stripe_upgrade_page():
-    st.subheader(t("💎 Upgrade Your Experience"))
-
-    if is_premium_user():
-        st.success(t("✅ You are already Premium."))
-
+    """V2 elite pricing and billing screen."""
     st.markdown(
         f"""
-        <div class="command-card">
-            <div class="command-title">💎 {t("Premium money command center")}</div>
-            <p class="command-text">{t("Unlock smarter forecasts, advanced AI guidance, deeper reports, and a more powerful planning workflow.")}</p>
+        <div class="v2-hero-shell">
+            <div class="v2-hero-inner">
+                <div class="v2-kicker">💎 {t("Premium money command center")}</div>
+                <div class="v2-hero-title">{t("Upgrade Your Experience")}</div>
+                <p class="v2-hero-copy">
+                    {t("Unlock smarter forecasts, advanced AI guidance, deeper reports, and a more powerful planning workflow.")}
+                </p>
+                <div class="v2-chip-row">
+                    <span class="v2-chip">🧠 {t("AI Money Coach")}</span>
+                    <span class="v2-chip">🔮 {t("Forecasting Engine")}</span>
+                    <span class="v2-chip">📄 {t("Advanced Reports")}</span>
+                    <span class="v2-chip">🚨 {t("Smart Alerts Center")}</span>
+                </div>
+            </div>
         </div>
         """,
         unsafe_allow_html=True,
     )
 
-    st.markdown("### " + t("Premium Features"))
-    feature_cols = st.columns(3)
-    feature_items = [
-        ("🔮", "Forecasting Engine", "Predict possible overspending before it happens."),
-        ("🧠", "AI Money Coach", "Get practical next steps based on your budget."),
-        ("📄", "Advanced Reports", "Export clearer, more professional reports."),
-        ("🎯", "Smart Savings Guidance", "Protect your savings goals with better signals."),
-        ("🚨", "Smart Alerts Center", "Spot risks before they become problems."),
-        ("🌍", "Global money context", "Use multi-currency planning across countries."),
-    ]
-    for idx, (icon, title, desc) in enumerate(feature_items):
-        with feature_cols[idx % 3]:
-            section_card(f"{icon} {t(title)}", t(desc))
+    if is_premium_user():
+        st.success(t("✅ You are already Premium."))
+    else:
+        st.info(t("Free Plan"))
+    st.markdown("""
+<style>
+
+/* REMOVE PASSWORD EYE ICON */
+[data-testid="stTextInput"] button {
+    display: none !important;
+}
+
+</style>
+""", unsafe_allow_html=True)
+
+    st.markdown(
+        f"""
+        <div class="v2-mini-grid">
+            <div class="v2-mini-tile"><div class="v2-mini-title">🧠 {t("AI Insights Report")}</div><div class="v2-mini-text">{t("Generate smarter money explanations and next steps.")}</div></div>
+            <div class="v2-mini-tile"><div class="v2-mini-title">🔮 {t("Forecasting Engine")}</div><div class="v2-mini-text">{t("See possible overspending before it happens.")}</div></div>
+            <div class="v2-mini-tile"><div class="v2-mini-title">📄 {t("Data Report")}</div><div class="v2-mini-text">{t("Export cleaner reports for review and planning.")}</div></div>
+            <div class="v2-mini-tile"><div class="v2-mini-title">🌍 {t("Global money context")}</div><div class="v2-mini-text">{t("Plan across currencies with clearer context.")}</div></div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
 
     prices = get_stripe_price_ids()
-    app_base_url = get_app_base_url()
-    success_url = f"{app_base_url}?payment=success&session_id={{CHECKOUT_SESSION_ID}}"
-    cancel_url = f"{app_base_url}?payment=cancelled"
 
     st.markdown("### " + t("Choose Your Plan"))
     col1, col2 = st.columns(2)
 
     with col1:
-        section_card(t("Monthly Premium"), t("Best if you want continuous access to premium planning tools."))
-        st.markdown("**$14.00/month**")
-        if prices["monthly"]:
-            if st.button(t("🚀 Subscribe Monthly"), key="stripe_monthly_checkout", use_container_width=True):
-                checkout_url = create_checkout_session(
-                    price_id=prices["monthly"],
-                    checkout_mode="subscription",
-                    plan_name="monthly",
-                )
+        st.markdown(
+            f"""
+            <div class="v2-plan-card featured">
+                <div class="v2-plan-name">🔄 {t("Monthly Premium")}</div>
+                <div class="v2-plan-price">$19<span style="font-size:1rem;color:#64748b;letter-spacing:0;">/month</span></div>
+                <div class="v2-plan-note">{t("Best if you want continuous access to premium planning tools.")}</div>
+                <ul class="v2-feature-list">
+                    <li>{t("AI Insights & Smart Analysis")}</li>
+                    <li>{t("Forecasting & Scenario Planning")}</li>
+                    <li>{t("Advanced Reports")}</li>
+                    <li>{t("Smart Alerts Center")}</li>
+                    <li>{t("Money Coach")}</li>
+                </ul>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+        if prices.get("monthly"):
+            if st.button(t("🚀 Subscribe Monthly"), key="stripe_monthly_checkout_v2", use_container_width=True):
+                checkout_url = create_checkout_session("monthly")
                 redirect_to_checkout(checkout_url)
         else:
             st.info(t("Monthly Stripe price ID not connected yet."))
 
     with col2:
-        section_card(t("One-Time Access"), t("Best if you prefer a simple one-time upgrade."))
-        st.markdown("**$10.99 one-time**")
-        if prices["one_time"]:
-            if st.button(t("💳 Buy One-Time Access"), key="stripe_one_time_checkout", use_container_width=True):
-                checkout_url = create_checkout_session(
-                    price_id=prices["one_time"],
-                    checkout_mode="payment",
-                    plan_name="one_time",
-                )
+        st.markdown(
+            f"""
+            <div class="v2-plan-card">
+                <div class="v2-plan-name">💳 {t("One-Time Access")}</div>
+                <div class="v2-plan-price">$25<span style="font-size:1rem;color:#64748b;letter-spacing:0;"> one-time</span></div>
+                <div class="v2-plan-note">{t("Best if you prefer a simple one-time upgrade.")}</div>
+                <ul class="v2-feature-list">
+                    <li>{t("Full access")}</li>
+                    <li>{t("No subscription")}</li>
+                    <li>{t("Premium reports")}</li>
+                    <li>{t("Smart savings guidance")}</li>
+                    <li>{t("Budget Doctor")}</li>
+                </ul>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+        if prices.get("one_time"):
+            if st.button(t("💳 Buy One-Time Access"), key="stripe_one_time_checkout_v2", use_container_width=True):
+                checkout_url = create_checkout_session("one_time")
                 redirect_to_checkout(checkout_url)
         else:
-            st.button(
-                t("💳 Buy One-Time Access (Coming soon)"),
-                disabled=True,
-                use_container_width=True,
-            )
+            st.info(t("One-time Stripe price ID not connected yet."))
+
+    st.info("To cancel or change your plan, contact support.")
 
     with st.expander(t("Stripe setup notes"), expanded=False):
-        st.write("Use these Streamlit Secrets or .env values:")
+        app_base_url = get_app_base_url()
+        st.write(t("Use these Streamlit Secrets or .env values:"))
         st.code(
             "STRIPE_SECRET_KEY=sk_test_or_live...\n"
             "STRIPE_PRICE_MONTHLY=price_...\n"
             "STRIPE_PRICE_ONE_TIME=price_...\n"
-            "APP_BASE_URL=https://your-streamlit-app-url"
+            f"APP_BASE_URL={app_base_url}"
         )
-        st.write(os.getenv("SUPABASE_ANON_KEY")[:10])
-        st.write(t("Stripe Checkout success URL:"))
-        st.code(success_url)
-        st.write(t("Stripe Checkout cancel URL:"))
-        st.code(cancel_url)
-
-    st.markdown("---")
-    st.caption(t("Temporary demo unlock for local testing only. Remove this before public launch if you do not want demo premium access."))
-    if st.button(t("Activate Premium Demo"), key="activate_premium_demo", use_container_width=True):
-        mark_current_user_premium(plan_source="demo")
-        st.success(t("Premium activated in demo mode."))
-
+        st.write(t("Set your Stripe Checkout success URL to include the checkout session id."))
 
 def format_money(amount):
     try:
@@ -1745,23 +1937,14 @@ def render_account_access():
         st.markdown(f"<div class='account-mini-label'>{t('Sign In')}</div>", unsafe_allow_html=True)
         login_email = st.text_input(t("Email"), key="login_email")
 
-        if "show_login_password" not in st.session_state:
-            st.session_state["show_login_password"] = False
-
-        pass_col, eye_col = st.columns([5, 1])
-        with pass_col:
-            login_password = st.text_input(
-                t("Password"),
-                type="default" if st.session_state.get("show_login_password") else "password",
-                key="login_password",
-                placeholder=t("Enter your password"),
-            )
-        with eye_col:
-            st.markdown("<div style='height: 1.75rem;'></div>", unsafe_allow_html=True)
-            eye_label = "🙈" if st.session_state.get("show_login_password") else "👁️"
-            if st.button(eye_label, key="toggle_login_password", help=t("Show password"), use_container_width=True):
-                st.session_state["show_login_password"] = not st.session_state.get("show_login_password", False)
-                st.rerun()
+        # Keep Email and Password the same length.
+        # Use Streamlit's built-in password field only, so the extra custom eye button does not appear.
+        login_password = st.text_input(
+            t("Password"),
+            type="password",
+            key="login_password",
+            #placeholder=t("Enter your password"),
+        )
 
         sign_col, forgot_col = st.columns([1, 1])
         with sign_col:
@@ -1796,23 +1979,14 @@ def render_account_access():
         st.markdown(f"<div class='account-mini-label'>{t('Create Account')}</div>", unsafe_allow_html=True)
         signup_email = st.text_input(t("Email"), key="signup_email")
 
-        if "show_signup_password" not in st.session_state:
-            st.session_state["show_signup_password"] = False
-
-        signup_pass_col, signup_eye_col = st.columns([5, 1])
-        with signup_pass_col:
-            signup_password = st.text_input(
-                t("Password"),
-                type="default" if st.session_state.get("show_signup_password") else "password",
-                key="signup_password",
-                placeholder=t("Create a password"),
-            )
-        with signup_eye_col:
-            st.markdown("<div style='height: 1.75rem;'></div>", unsafe_allow_html=True)
-            signup_eye_label = "🙈" if st.session_state.get("show_signup_password") else "👁️"
-            if st.button(signup_eye_label, key="toggle_signup_password", help=t("Show password"), use_container_width=True):
-                st.session_state["show_signup_password"] = not st.session_state.get("show_signup_password", False)
-                st.rerun()
+        # Keep Email and Password the same length.
+        # Use Streamlit's built-in password field only, so the extra custom eye button does not appear.
+        signup_password = st.text_input(
+            t("Password"),
+            type="password",
+            key="signup_password",
+            placeholder=t("Create a password"),
+        )
 
         if st.button(t("Create Account"), key="signup_btn", use_container_width=True):
             email_key = normalize_email(signup_email)
@@ -2689,6 +2863,9 @@ elif page == "📅 AI Insights Report":
     require_premium("AI Insights Report")
     st.subheader(t("📅 AI Insights Report"))
     monthly_income, savings_goal = st.session_state.get("monthly_income", 0.0), st.session_state.get("savings_goal", 0.0)
+    if page == "📅 AI Insights Report":
+        require_premium("AI Insights Report")
+        render_ai_insights_report()
     if monthly_income == 0:
         st.warning(t("Add your monthly income to generate a full report."))
     else:
@@ -2980,7 +3157,6 @@ elif page == "⚙️ Settings":
     st.write(f"{t('Display Currency')}: **{st.session_state['currency']}**")
     st.write(f"{t('Base Currency')}: **{st.session_state['base_currency']}**")
     st.write(f"{t('Plan')}: **{'Premium' if is_premium_user() else 'Free Plan'}**")
-
 
 elif page == "💎 Upgrade":
     render_stripe_upgrade_page()
