@@ -6,3 +6,4 @@ reportlab
 python-dotenv
 supabase
 stripe
+
