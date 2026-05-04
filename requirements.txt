@@ -6,4 +6,6 @@ reportlab
 python-dotenv
 supabase
 stripe
+fastapi
+uvicorn
 

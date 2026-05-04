@@ -1500,6 +1500,26 @@ def handle_payment_return():
 
             except Exception as e:
                 st.warning(f"Payment returned, but Stripe session could not be verified: {e}")
+# =========================
+# PAYMENT SUCCESS HANDLER
+# =========================
+
+params = st.query_params
+
+if params.get("payment") == "success":
+
+    email = st.session_state.get("user_email")
+
+    if email:
+        supabase.table("user_profiles").update({
+            "is_premium": True,
+            "plan_source": "stripe_manual"
+        }).eq("email", email).execute()
+
+        st.success("🎉 Premium activated!")
+
+        # Optional: prevent repeating on refresh
+        st.query_params.clear()
 
         # Fallback for local testing or if Stripe session lookup failed.
         if not email:
@@ -1596,7 +1616,7 @@ def render_stripe_upgrade_page():
             f"""
             <div class="v2-plan-card featured">
                 <div class="v2-plan-name">🔄 {t("Monthly Premium")}</div>
-                <div class="v2-plan-price">$19<span style="font-size:1rem;color:#64748b;letter-spacing:0;">/month</span></div>
+                <div class="v2-plan-price">$14<span style="font-size:1rem;color:#64748b;letter-spacing:0;">/month</span></div>
                 <div class="v2-plan-note">{t("Best if you want continuous access to premium planning tools.")}</div>
                 <ul class="v2-feature-list">
                     <li>{t("AI Insights & Smart Analysis")}</li>
@@ -1621,7 +1641,7 @@ def render_stripe_upgrade_page():
             f"""
             <div class="v2-plan-card">
                 <div class="v2-plan-name">💳 {t("One-Time Access")}</div>
-                <div class="v2-plan-price">$25<span style="font-size:1rem;color:#64748b;letter-spacing:0;"> one-time</span></div>
+                <div class="v2-plan-price">$10.99<span style="font-size:1rem;color:#64748b;letter-spacing:0;"> one-time</span></div>
                 <div class="v2-plan-note">{t("Best if you prefer a simple one-time upgrade.")}</div>
                 <ul class="v2-feature-list">
                     <li>{t("Full access")}</li>
