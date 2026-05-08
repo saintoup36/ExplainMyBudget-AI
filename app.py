@@ -2291,12 +2291,12 @@ handle_payment_return()
 inject_css()
 render_hero()
 
-    st.markdown("""
+st.markdown("""
 <style>
 
 /* =========================
-   MOBILE UI OPTIMIZATION
-   ========================= */
+#  MOBILE UI OPTIMIZATION
+#========================= */
 
 @media (max-width: 768px) {
 
