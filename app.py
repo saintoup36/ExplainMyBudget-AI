@@ -2291,6 +2291,97 @@ handle_payment_return()
 inject_css()
 render_hero()
 
+    st.markdown("""
+<style>
+
+/* =========================
+   MOBILE UI OPTIMIZATION
+   ========================= */
+
+@media (max-width: 768px) {
+
+    .block-container {
+        padding-left: 0.8rem !important;
+        padding-right: 0.8rem !important;
+        padding-top: 0.6rem !important;
+        max-width: 100% !important;
+    }
+
+    h1 {
+        font-size: 1.65rem !important;
+        line-height: 1.2 !important;
+    }
+
+    h2 {
+        font-size: 1.35rem !important;
+    }
+
+    h3 {
+        font-size: 1.1rem !important;
+    }
+
+    p, li, label, div {
+        font-size: 0.95rem !important;
+    }
+
+    /* Make buttons easier to tap */
+    .stButton > button,
+    .stDownloadButton > button,
+    .stLinkButton > a {
+        width: 100% !important;
+        min-height: 46px !important;
+        font-size: 0.95rem !important;
+        border-radius: 14px !important;
+        margin-bottom: 0.45rem !important;
+    }
+
+    /* Stack metric/cards better */
+    [data-testid="column"] {
+        width: 100% !important;
+        flex: 1 1 100% !important;
+        margin-bottom: 0.75rem !important;
+    }
+
+    /* Inputs easier on phone */
+    input, textarea, select {
+        font-size: 16px !important;
+        min-height: 44px !important;
+    }
+
+    /* Reduce giant cards */
+    .hero-card,
+    .metric-card,
+    .premium-card,
+    .card {
+        padding: 1rem !important;
+        border-radius: 16px !important;
+        margin-bottom: 0.8rem !important;
+    }
+
+    /* Hide extra decorative spacing */
+    .desktop-only {
+        display: none !important;
+    }
+
+    /* Tables fit better */
+    [data-testid="stDataFrame"] {
+        overflow-x: auto !important;
+    }
+
+    /* Tabs/radio spacing */
+    div[role="radiogroup"] {
+        gap: 0.35rem !important;
+    }
+
+    div[role="radiogroup"] label {
+        padding: 0.45rem 0.6rem !important;
+        border-radius: 12px !important;
+    }
+}
+
+</style>
+""", unsafe_allow_html=True)
+
 if st.session_state.get("account_logged_in"):
     sync_premium_from_supabase(
         st.session_state.get("account_email")
@@ -2390,8 +2481,8 @@ with st.sidebar:
             st.session_state["monthly_income"] = 0.0
             st.session_state["user_plan"] = FREE_PLAN
             st.success(t("App reset complete."))
-
-
+            
+    
 inject_language_direction_css()
 
 page = st.session_state.get("active_page", "📊 Dashboard")
