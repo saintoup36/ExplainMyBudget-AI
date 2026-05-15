@@ -42,7 +42,12 @@ except Exception:
     getSampleStyleSheet = None
     letter = None
 
-st.set_page_config(page_title="ExplainMyBudget AI", page_icon="💰", layout="wide")
+st.set_page_config(
+    page_title="ExplainMyBudget AI",
+    page_icon="💰",
+    layout="wide",
+    initial_sidebar_state="collapsed",
+)
 
 if "language" not in st.session_state:
     st.session_state["language"] = "English"
@@ -1589,6 +1594,24 @@ def render_stripe_upgrade_page():
     else:
         st.info(t("Free Plan"))
     st.markdown("""
+
+@media (max-width: 768px) {
+    .block-container {
+        padding-top: 5.5rem !important;
+    }
+
+    h1, h2, h3 {
+        text-align: center !important;
+        line-height: 1.25 !important;
+    }
+
+    .main-title,
+    .hero-title,
+    .app-title {
+        text-align: center !important;
+        margin-top: 2rem !important;
+        line-height: 1.25 !important;
+    }
 <style>
 
 </style>
